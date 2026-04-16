@@ -19,7 +19,7 @@ import EmptyState from '../components/EmptyState';
 import ManualEntryModal from '../components/ManualEntryModal';
 import { useStore } from '../store';
 import { buildDepartmentDatasets } from '../lib/selectors';
-import { fmtNum, fmtHours } from '../lib/utils';
+import { fmtNum } from '../lib/utils';
 import { DEPT_COLOR } from '../types';
 import type { DeptKey } from '../types';
 

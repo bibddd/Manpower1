@@ -21,8 +21,13 @@ interface NavItem {
   badge?: number;
 }
 
-export default function Sidebar({ collapsed }: { collapsed: boolean }) {
-  const { files, workloadEntries } = useStore();
+interface Props {
+  collapsed: boolean;
+}
+
+export default function Sidebar({ collapsed }: Props) {
+  const files = useStore((s) => s.files);
+  const workloadEntries = useStore((s) => s.workloadEntries);
 
   const nav: NavItem[] = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -37,7 +42,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   return (
     <aside
       className={cn(
-        'flex flex-col bg-ink-900 text-white transition-all duration-300 select-none',
+        'flex flex-col bg-ink-900 text-white transition-all duration-300 select-none flex-shrink-0',
         collapsed ? 'w-16' : 'w-60',
       )}
     >
@@ -70,21 +75,14 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
               )
             }
           >
-            {({ isActive }) => (
+            <Icon size={18} className="flex-shrink-0 opacity-80" />
+            {!collapsed && (
               <>
-                <Icon size={18} className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-ink-400 group-hover:text-white')} />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 truncate">{label}</span>
-                    {badge !== undefined && badge > 0 && (
-                      <span className="bg-brand-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        {badge}
-                      </span>
-                    )}
-                    {isActive && (
-                      <ChevronRight size={14} className="text-white/60" />
-                    )}
-                  </>
+                <span className="flex-1 truncate">{label}</span>
+                {badge !== undefined && badge > 0 && (
+                  <span className="bg-brand-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    {badge}
+                  </span>
                 )}
               </>
             )}

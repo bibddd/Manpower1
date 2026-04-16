@@ -203,15 +203,15 @@ const MONTH_ORDER: Record<string, number> = {
 };
 
 export function periodSorter(a: string, b: string): number {
-  const parseP = (p: string) => {
+  const parseP = (p: string): number => {
     const parts = p.split('-');
     if (parts.length === 2) {
       const month = MONTH_ORDER[parts[0]] ?? 0;
       const year = parseInt(parts[1], 10);
       return year * 100 + month;
     }
-    // fallback alphabetical
-    return p.localeCompare(b);
+    return 0;
   };
-  return parseP(a) - parseP(b);
+  const diff = parseP(a) - parseP(b);
+  return diff !== 0 ? diff : a.localeCompare(b);
 }
