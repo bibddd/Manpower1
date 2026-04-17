@@ -1,106 +1,58 @@
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Upload,
   BarChart3,
   Users,
-  ClipboardList,
-  PenLine,
   Settings,
-  ChevronRight,
   Activity,
-  type LucideIcon,
+  FileText,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useStore } from '../store';
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  badge?: number;
-}
+const nav = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/upload', label: 'Upload Data', icon: Upload },
+  { to: '/charts', label: 'Charts', icon: BarChart3 },
+  { to: '/capacity', label: 'Capacity', icon: Activity },
+  { to: '/workload', label: 'Workload', icon: Users },
+  { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/settings', label: 'Settings', icon: Settings },
+];
 
-interface Props {
-  collapsed: boolean;
-}
-
-export default function Sidebar({ collapsed }: Props) {
-  const files = useStore((s) => s.files);
-  const workloadEntries = useStore((s) => s.workloadEntries);
-
-  const nav: NavItem[] = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/upload', label: 'Upload Files', icon: Upload, badge: files.length },
-    { to: '/charts', label: 'Charts', icon: BarChart3 },
-    { to: '/capacity', label: 'Capacity', icon: Users },
-    { to: '/workload', label: 'Workload', icon: ClipboardList, badge: workloadEntries.length || undefined },
-    { to: '/entry', label: 'Manual Entry', icon: PenLine },
-    { to: '/settings', label: 'Settings', icon: Settings },
-  ];
-
+export default function Sidebar() {
   return (
-    <aside
-      className={cn(
-        'flex flex-col bg-ink-900 text-white transition-all duration-300 select-none flex-shrink-0',
-        collapsed ? 'w-16' : 'w-60',
-      )}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-ink-700">
-        <div className="flex-shrink-0 w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
-          <Activity size={16} className="text-white" />
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <div className="text-sm font-bold leading-tight truncate">Manpower</div>
-            <div className="text-[10px] text-ink-400 uppercase tracking-widest">Dashboard</div>
-          </div>
-        )}
+    <aside className="w-60 bg-slate-900 flex flex-col min-h-screen shrink-0">
+      <div className="px-6 py-5 border-b border-slate-700/50">
+        <h1 className="text-white font-bold text-base leading-tight">
+          Manpower<br />
+          <span className="text-blue-400 font-semibold">Tracking Dashboard</span>
+        </h1>
       </div>
-
-      {/* Nav links */}
-      <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto">
-        {nav.map(({ to, label, icon: Icon, badge }) => (
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {nav.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={end}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'text-ink-300 hover:bg-ink-800 hover:text-white',
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
               )
             }
           >
-            <Icon size={18} className="flex-shrink-0 opacity-80" />
-            {!collapsed && (
-              <>
-                <span className="flex-1 truncate">{label}</span>
-                {badge !== undefined && badge > 0 && (
-                  <span className="bg-brand-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                    {badge}
-                  </span>
-                )}
-              </>
-            )}
+            <Icon size={16} />
+            {label}
           </NavLink>
         ))}
       </nav>
-
-      {/* Footer */}
-      {!collapsed && (
-        <div className="px-4 py-4 border-t border-ink-700">
-          <div className="text-[10px] text-ink-500 uppercase tracking-widest">
-            Engineering Dept.
-          </div>
-          <div className="text-xs text-ink-400 mt-0.5">
-            {new Date().getFullYear()} · All Rights Reserved
-          </div>
-        </div>
-      )}
+      <div className="px-4 py-4 border-t border-slate-700/50">
+        <p className="text-slate-500 text-xs">v1.0.0 · Enterprise Edition</p>
+      </div>
     </aside>
   );
 }

@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  base: './',
   define: {
-    // Fix CJS modules (xlsx, etc.) that check for Node globals
     global: 'globalThis',
   },
   server: {

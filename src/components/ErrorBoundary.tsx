@@ -1,8 +1,12 @@
-import { Component, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 
-interface Props { children: ReactNode }
-interface State { error: Error | null }
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  error: Error | null;
+}
 
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
@@ -11,30 +15,27 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: { componentStack: string }) {
-    console.error('[ManpowerDashboard] Render error:', error, info.componentStack);
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, info);
   }
 
   render() {
     if (this.state.error) {
       return (
-        <div className="min-h-screen bg-ink-50 flex items-center justify-center p-8">
-          <div className="card max-w-lg w-full p-8 text-center">
-            <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
-              <AlertTriangle size={28} className="text-red-600" />
-            </div>
-            <h2 className="text-lg font-bold text-ink-900 mb-2">Something went wrong</h2>
-            <p className="text-sm text-ink-500 mb-4">
-              {this.state.error.message}
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+          <div className="bg-white rounded-xl border border-red-200 p-8 max-w-lg w-full shadow-sm">
+            <h1 className="text-xl font-semibold text-red-600 mb-2">Application Error</h1>
+            <p className="text-slate-600 text-sm mb-4">
+              Something went wrong. Please refresh the page.
             </p>
-            <pre className="bg-ink-100 rounded-lg p-3 text-left text-xs text-ink-600 overflow-auto mb-5 max-h-40">
-              {this.state.error.stack?.split('\n').slice(0, 8).join('\n')}
+            <pre className="bg-slate-50 rounded p-3 text-xs text-slate-700 overflow-auto max-h-48">
+              {this.state.error.message}
             </pre>
             <button
+              className="mt-4 btn-primary"
               onClick={() => window.location.reload()}
-              className="btn-primary mx-auto"
             >
-              <RefreshCw size={15} /> Reload App
+              Reload Page
             </button>
           </div>
         </div>

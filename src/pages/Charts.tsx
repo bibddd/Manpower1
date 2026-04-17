@@ -1,101 +1,79 @@
-/**
- * Charts page — mirrors the "Chart" tab from the reference spreadsheet.
- * Shows one DepartmentChart per dept (System Layout, Simulation, Processing,
- * Designers, Engineering/GD&T/FEA, GDLS Designers, Total Capacity Engineering).
- * Red mountain workload + 3 capacity lines + data table below each chart.
- */
-import { useMemo, useState } from 'react';
-import { Printer, Download, Filter } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { useApp } from '../context';
+import { DEPARTMENTS, type Department } from '../types';
 import DepartmentChart from '../components/DepartmentChart';
-import EmptyState from '../components/EmptyState';
-import { useStore } from '../store';
-import { buildDepartmentDatasets } from '../lib/selectors';
-import { exportToExcel } from '../lib/exporter';
-import toast from 'react-hot-toast';
-
-type HoursFilter = 40 | 50 | 60 | 'all';
+import { Link } from 'react-router-dom';
+import { Upload } from 'lucide-react';
 
 export default function Charts() {
-  const store = useStore();
-  const [hoursFilter, setHoursFilter] = useState<HoursFilter>('all');
-  const [deptFilter, setDeptFilter] = useState<string>('all');
+  const { state } = useApp();
+  const { entries } = state;
 
-  const datasets = useMemo(
-    () => buildDepartmentDatasets(store, store.settings.weeksPerMonth),
-    [store],
-  );
+  const [selectedDepts, setSelectedDepts] = useState<Set<Department>>(new Set(DEPARTMENTS));
 
-  const hasData = datasets.some((d) => d.points.some((p) => p.workload > 0 || p.capacity50 > 0));
-
-  if (!hasData) {
-    return <EmptyState title="No chart data" description="Upload your Capacity & Workload spreadsheet to generate department mountain charts." />;
-  }
-
-  const displayed = deptFilter === 'all'
-    ? datasets
-    : datasets.filter((d) => d.key === deptFilter);
-
-  const handleExport = () => {
-    exportToExcel(datasets);
-    toast.success('Charts exported to Excel');
+  const toggleDept = (dept: Department) => {
+    setSelectedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(dept)) {
+        if (next.size === 1) return prev;
+        next.delete(dept);
+      } else {
+        next.add(dept);
+      }
+      return next;
+    });
   };
 
-  return (
-    <div className="space-y-6 animate-in">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-ink-900">Department Charts</h1>
-          <p className="text-sm text-ink-500 mt-1">
-            Workload (red mountain) vs Capacity at 40 / 50 / 60 hrs per week
-          </p>
+  const activeDepts = DEPARTMENTS.filter((d) => selectedDepts.has(d));
+
+  if (entries.length === 0) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold text-slate-800 mb-6">Department Charts</h1>
+        <div className="card p-10 text-center max-w-sm mx-auto">
+          <p className="text-slate-500 mb-4">No data to chart yet.</p>
+          <Link to="/upload" className="btn-primary text-sm">
+            <Upload size={14} /> Upload Data
+          </Link>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Hours filter */}
-          <div className="flex items-center gap-1 bg-white border border-ink-200 rounded-lg p-1">
-            {(['all', 40, 50, 60] as HoursFilter[]).map((h) => (
-              <button
-                key={h}
-                onClick={() => setHoursFilter(h)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  hoursFilter === h
-                    ? 'bg-brand-600 text-white'
-                    : 'text-ink-600 hover:bg-ink-100'
-                }`}
-              >
-                {h === 'all' ? 'All Hrs' : `${h} Hrs`}
-              </button>
-            ))}
-          </div>
+      </div>
+    );
+  }
 
-          {/* Dept filter */}
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="select text-sm w-48"
-          >
-            <option value="all">All Departments</option>
-            {datasets.map((d) => (
-              <option key={d.key} value={d.key}>{d.label}</option>
-            ))}
-          </select>
+  return (
+    <div className="p-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Department Charts</h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Workload vs. Capacity — red area = workload, lines = capacity thresholds
+        </p>
+      </div>
 
-          <button onClick={handleExport} className="btn-secondary text-sm">
-            <Download size={14} /> Export
-          </button>
-          <button onClick={() => window.print()} className="btn-secondary text-sm">
-            <Printer size={14} /> Print
-          </button>
+      <div className="mb-6 card p-4">
+        <p className="text-xs font-medium text-slate-600 mb-2">Filter Departments</p>
+        <div className="flex flex-wrap gap-2">
+          {DEPARTMENTS.map((dept) => (
+            <button
+              key={dept}
+              onClick={() => toggleDept(dept)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                selectedDepts.has(dept)
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+              }`}
+            >
+              {dept}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Charts grid */}
-      <div className="space-y-8">
-        {displayed.map((dataset) => (
+      <div className="space-y-6">
+        {activeDepts.map((dept) => (
           <DepartmentChart
-            key={dataset.key}
-            dataset={dataset}
-            hoursFilter={hoursFilter}
+            key={dept}
+            department={dept}
+            entries={entries.filter((e) => e.department === dept)}
           />
         ))}
       </div>

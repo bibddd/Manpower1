@@ -1,118 +1,103 @@
-import { useState } from 'react';
-import { Trash2, RefreshCw, FileSpreadsheet, Info } from 'lucide-react';
-import FileDropzone, { UploadedFileItem } from '../components/FileDropzone';
-import ManualEntryModal from '../components/ManualEntryModal';
-import { useStore } from '../store';
-import { generateSampleData } from '../lib/parser';
+import React, { useState } from 'react';
+import { Trash2, Upload as UploadIcon, ClipboardPaste, PenSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { nanoid } from '../lib/utils';
+import FileUpload from '../components/FileUpload';
+import ManualEntryForm from '../components/ManualEntryForm';
+import PasteImport from '../components/PasteImport';
+import { useApp } from '../context';
+
+type Tab = 'file' | 'manual' | 'paste';
 
 export default function Upload() {
-  const store = useStore();
-  const [showModal, setShowModal] = useState(false);
+  const { state, clearAll } = useApp();
+  const [tab, setTab] = useState<Tab>('file');
 
-  const loadDemo = () => {
-    const data = generateSampleData();
-    store.addCapacityRows(data.capacityRows);
-    store.addWorkloadEntries(data.workloadEntries);
-    store.setPeriods(data.periods);
-    store.addFile({
-      id: nanoid(),
-      name: 'demo-data.xlsx (sample)',
-      size: 0,
-      type: 'demo',
-      uploadedAt: new Date().toISOString(),
-      periods: data.periods,
-      status: 'ready',
-      rowCount: data.capacityRows.length + data.workloadEntries.length,
-    });
-    toast.success('Sample data loaded — explore the Charts & Dashboard pages');
-  };
+  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'file', label: 'File Upload', icon: UploadIcon },
+    { id: 'manual', label: 'Manual Entry', icon: PenSquare },
+    { id: 'paste', label: 'Paste from Excel', icon: ClipboardPaste },
+  ];
 
-  const clearAll = () => {
-    if (store.files.length === 0 && store.workloadEntries.length === 0) {
-      toast('Nothing to clear');
-      return;
-    }
-    if (confirm('Clear ALL uploaded data? This cannot be undone.')) {
-      store.clearAll();
-      toast.success('All data cleared');
-    }
+  const handleClear = () => {
+    if (state.entries.length === 0) return;
+    if (!confirm(`Delete all ${state.entries.length} records? This cannot be undone.`)) return;
+    clearAll();
+    toast.success('All data cleared.');
   };
 
   return (
-    <div className="space-y-6 animate-in max-w-3xl">
-      {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-ink-900">Upload Files</h1>
-        <p className="text-sm text-ink-500 mt-1">
-          Upload your Engineering Capacity & Workload spreadsheets. The parser auto-detects CAPACITY and WORKLOAD sheets.
-        </p>
+    <div className="p-8 max-w-4xl">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Upload Data</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            {state.entries.length} records loaded
+          </p>
+        </div>
+        {state.entries.length > 0 && (
+          <button onClick={handleClear} className="btn-danger text-xs">
+            <Trash2 size={14} /> Clear All Data
+          </button>
+        )}
       </div>
 
-      {/* Info banner */}
-      <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 flex gap-3">
-        <Info size={16} className="text-brand-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-brand-800">
-          <strong>Expected format:</strong> Excel files with a <em>Capacity</em> sheet (role rows × monthly period columns) and a <em>Workload</em> sheet (Customer / Project / Dept rows × same columns). CSV and TSV are also supported. You can upload multiple files — data is merged automatically.
+      <div className="card overflow-hidden">
+        <div className="border-b border-slate-100 flex">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                tab === id
+                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-6">
+          {tab === 'file' && <FileUpload />}
+          {tab === 'manual' && <ManualEntryForm />}
+          {tab === 'paste' && <PasteImport />}
         </div>
       </div>
 
-      {/* Dropzone */}
-      <FileDropzone />
-
-      {/* Actions */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <button onClick={() => setShowModal(true)} className="btn-secondary text-sm">
-          <FileSpreadsheet size={14} /> Enter Manually
-        </button>
-        <button onClick={loadDemo} className="btn-secondary text-sm">
-          <RefreshCw size={14} /> Load Sample Data
-        </button>
-        <div className="flex-1" />
-        <button onClick={clearAll} className="btn-danger text-sm">
-          <Trash2 size={14} /> Clear All Data
-        </button>
-      </div>
-
-      {/* Uploaded file list */}
-      {store.files.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-ink-700 mb-3">
-            Uploaded Files ({store.files.length})
-          </h2>
-          <div className="space-y-2">
-            {store.files.map((f) => (
-              <UploadedFileItem
-                key={f.id}
-                file={f}
-                onRemove={(id) => {
-                  store.removeFile(id);
-                  toast.success('File removed');
-                }}
-              />
-            ))}
+      {state.entries.length > 0 && (
+        <div className="mt-6 card overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="section-title">Recent Entries</h2>
+            <span className="text-xs text-slate-400">{state.entries.length} total</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500">Week</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-500">Department</th>
+                  <th className="px-4 py-2.5 text-right font-medium text-slate-500">Headcount</th>
+                  <th className="px-4 py-2.5 text-right font-medium text-slate-500">Workload</th>
+                  <th className="px-4 py-2.5 text-right font-medium text-slate-500">Cap@50</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.entries.slice(-50).reverse().map((e) => (
+                  <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="px-4 py-2 text-slate-700">{e.weekLabel}</td>
+                    <td className="px-4 py-2 text-slate-700">{e.department}</td>
+                    <td className="px-4 py-2 text-right text-slate-600">{e.headcount}</td>
+                    <td className="px-4 py-2 text-right text-red-600 font-medium">{e.workloadHours} hrs</td>
+                    <td className="px-4 py-2 text-right text-green-700">{(e.headcount * 50).toFixed(0)} hrs</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
-
-      {/* Stats */}
-      {(store.capacityRows.length > 0 || store.workloadEntries.length > 0) && (
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: 'Capacity Rows', value: store.capacityRows.length },
-            { label: 'Workload Entries', value: store.workloadEntries.length },
-            { label: 'Periods Tracked', value: store.periods.length },
-          ].map(({ label, value }) => (
-            <div key={label} className="card p-4 text-center">
-              <div className="text-2xl font-bold text-brand-600 tabular">{value}</div>
-              <div className="text-xs text-ink-500 mt-1">{label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showModal && <ManualEntryModal onClose={() => setShowModal(false)} />}
     </div>
   );
 }

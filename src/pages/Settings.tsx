@@ -1,132 +1,81 @@
-import { useState } from 'react';
-import { Save, Trash2, AlertTriangle, Info } from 'lucide-react';
-import { useStore } from '../store';
+import React from 'react';
+import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useApp } from '../context';
+import { DEPARTMENTS } from '../types';
 
 export default function Settings() {
-  const { settings, updateSettings, clearAll, files, capacityRows, workloadEntries } = useStore();
-  const [form, setForm] = useState({ ...settings });
-
-  const handleSave = () => {
-    updateSettings(form);
-    toast.success('Settings saved');
-  };
+  const { state, clearAll, setViewMode } = useApp();
 
   const handleClear = () => {
-    if (confirm('This will permanently delete ALL uploaded data, capacity rows, and workload entries. This cannot be undone.')) {
-      clearAll();
-      toast.success('All data cleared');
-    }
+    if (state.entries.length === 0) { toast.error('No data to clear.'); return; }
+    if (!confirm(`Delete all ${state.entries.length} records? This cannot be undone.`)) return;
+    clearAll();
+    toast.success('All data cleared.');
   };
 
-  const set = (k: keyof typeof form, v: unknown) =>
-    setForm((prev) => ({ ...prev, [k]: v }));
-
   return (
-    <div className="space-y-6 animate-in max-w-2xl">
-      <div>
-        <h1 className="text-xl font-bold text-ink-900">Settings</h1>
-        <p className="text-sm text-ink-500 mt-1">Configure the dashboard for your organization</p>
+    <div className="p-8 max-w-2xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Settings</h1>
+        <p className="text-slate-500 text-sm mt-1">Configure dashboard preferences</p>
       </div>
 
-      {/* General */}
-      <div className="card p-5 space-y-4">
-        <h2 className="font-semibold text-ink-800 border-b border-ink-100 pb-3">General</h2>
-
-        <div>
-          <label className="label">Company / Department Name</label>
-          <input
-            className="input text-sm"
-            value={form.companyName}
-            onChange={(e) => set('companyName', e.target.value)}
-            placeholder="Engineering Department"
-          />
-        </div>
-
-        <div>
-          <label className="label">Fiscal Year Start Month</label>
-          <select
-            className="select text-sm"
-            value={form.fiscalYearStart}
-            onChange={(e) => set('fiscalYearStart', parseInt(e.target.value))}
-          >
-            {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
-              <option key={i} value={i}>{m}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Capacity calculation */}
-      <div className="card p-5 space-y-4">
-        <h2 className="font-semibold text-ink-800 border-b border-ink-100 pb-3">Capacity Calculation</h2>
-
-        <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex gap-2 text-sm text-brand-800">
-          <Info size={15} className="flex-shrink-0 mt-0.5 text-brand-600" />
-          Capacity Hours = Headcount × Hours/Week × Weeks/Month
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-6">
+        <div className="card p-6">
+          <h2 className="section-title mb-4">Display</h2>
           <div>
-            <label className="label">Default Hours/Week Baseline</label>
-            <select
-              className="select text-sm"
-              value={form.defaultHoursPerWeek}
-              onChange={(e) => set('defaultHoursPerWeek', parseInt(e.target.value) as 40 | 50 | 60)}
-            >
-              <option value={40}>40 hours (standard)</option>
-              <option value={50}>50 hours (overtime)</option>
-              <option value={60}>60 hours (crunch)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="label">Weeks Per Month</label>
-            <input
-              type="number"
-              min="3"
-              max="5"
-              step="0.1"
-              className="input text-sm"
-              value={form.weeksPerMonth}
-              onChange={(e) => set('weeksPerMonth', parseFloat(e.target.value))}
-            />
-            <p className="text-[11px] text-ink-400 mt-1">Standard is 4 weeks (used in reference spreadsheet)</p>
+            <label className="label">View Mode</label>
+            <div className="flex gap-3 mt-1">
+              <button
+                onClick={() => setViewMode('weekly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  state.viewMode === 'weekly'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => setViewMode('monthly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  state.viewMode === 'monthly'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                Monthly
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <input
-            id="showOffsite"
-            type="checkbox"
-            checked={form.showOffsite}
-            onChange={(e) => set('showOffsite', e.target.checked)}
-            className="w-4 h-4 rounded border-ink-300 text-brand-600"
-          />
-          <label htmlFor="showOffsite" className="text-sm text-ink-700">
-            Show Offsite department in charts
-          </label>
+        <div className="card p-6">
+          <h2 className="section-title mb-1">Departments</h2>
+          <p className="text-xs text-slate-400 mb-4">Tracked departments (fixed per enterprise configuration)</p>
+          <div className="space-y-2">
+            {DEPARTMENTS.map((dept) => {
+              const count = state.entries.filter((e) => e.department === dept).length;
+              return (
+                <div key={dept} className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                  <span className="text-sm text-slate-700">{dept}</span>
+                  <span className="text-xs text-slate-400">{count} records</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Save */}
-      <button onClick={handleSave} className="btn-primary w-full">
-        <Save size={15} /> Save Settings
-      </button>
-
-      {/* Danger zone */}
-      <div className="card p-5 border border-red-200 bg-red-50 space-y-3">
-        <div className="flex items-center gap-2 text-red-700">
-          <AlertTriangle size={16} />
-          <h2 className="font-semibold">Danger Zone</h2>
+        <div className="card p-6 border-red-100">
+          <h2 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Clear all imported data. This action cannot be undone.
+          </p>
+          <button onClick={handleClear} className="btn-danger">
+            <Trash2 size={15} /> Clear All Data ({state.entries.length} records)
+          </button>
         </div>
-        <p className="text-sm text-red-600">
-          Clearing all data removes {files.length} file records, {capacityRows.length} capacity rows,
-          and {workloadEntries.length} workload entries permanently.
-        </p>
-        <button onClick={handleClear} className="btn-danger text-sm">
-          <Trash2 size={14} /> Clear All Data
-        </button>
       </div>
     </div>
   );

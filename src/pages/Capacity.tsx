@@ -1,178 +1,104 @@
-import { useMemo, useState } from 'react';
-import { Plus, Trash2, Download } from 'lucide-react';
-import EmptyState from '../components/EmptyState';
-import ManualEntryModal from '../components/ManualEntryModal';
-import { useStore } from '../store';
-import { buildDepartmentDatasets } from '../lib/selectors';
-import { DEPT_LABELS, DEPT_COLOR } from '../types';
-import type { DeptKey } from '../types';
-import { fmtNum } from '../lib/utils';
-import { exportToExcel } from '../lib/exporter';
-import toast from 'react-hot-toast';
-import { periodSorter } from '../store';
-
-const DEPT_KEYS: DeptKey[] = ['SL','SIM','PROC','OFFSITE','TECH_WRITERS','ENGINEERING','GDLS_DESIGNER','DESIGNERS'];
+import React, { useMemo } from 'react';
+import { useApp } from '../context';
+import { DEPARTMENTS } from '../types';
+import { Link } from 'react-router-dom';
+import { Upload } from 'lucide-react';
 
 export default function Capacity() {
-  const store = useStore();
-  const [showModal, setShowModal] = useState(false);
-  const [tab, setTab] = useState<40 | 50 | 60>(50);
+  const { state } = useApp();
+  const { entries } = state;
 
-  const datasets = useMemo(
-    () => buildDepartmentDatasets(store, store.settings.weeksPerMonth),
-    [store],
-  );
+  const rows = useMemo(() => {
+    return DEPARTMENTS.map((dept) => {
+      const deptEntries = entries.filter((e) => e.department === dept);
+      const weeks = new Set(deptEntries.map((e) => e.weekLabel)).size;
+      const totalHeadcount = deptEntries.reduce((s, e) => s + e.headcount, 0);
+      const avgHead = weeks > 0 ? totalHeadcount / weeks : 0;
+      const totalWorkload = deptEntries.reduce((s, e) => s + e.workloadHours, 0);
+      const avgWorkload = weeks > 0 ? totalWorkload / weeks : 0;
+      const avgCap40 = avgHead * 40;
+      const avgCap50 = avgHead * 50;
+      const avgCap60 = avgHead * 60;
+      const utilization = avgCap50 > 0 ? (avgWorkload / avgCap50) * 100 : 0;
+      return { dept, weeks, avgHead, avgWorkload, avgCap40, avgCap50, avgCap60, utilization };
+    });
+  }, [entries]);
 
-  const periods = useMemo(
-    () => [...store.periods].sort(periodSorter),
-    [store.periods],
-  );
-
-  const hasData = store.capacityRows.length > 0;
-  if (!hasData) {
+  if (entries.length === 0) {
     return (
-      <>
-        <EmptyState title="No capacity data" description="Upload a spreadsheet with a Capacity sheet, or enter headcount manually." />
-        {showModal && <ManualEntryModal onClose={() => setShowModal(false)} />}
-      </>
+      <div className="p-8">
+        <h1 className="text-2xl font-bold text-slate-800 mb-6">Capacity Analysis</h1>
+        <div className="card p-10 text-center max-w-sm mx-auto">
+          <p className="text-slate-500 mb-4">No data available.</p>
+          <Link to="/upload" className="btn-primary text-sm"><Upload size={14} /> Upload Data</Link>
+        </div>
+      </div>
     );
   }
 
-  // Build headcount table: row = dept, col = period
-  const hcTable: Record<DeptKey, Record<string, number>> = {} as never;
-  DEPT_KEYS.forEach((k) => { hcTable[k] = {}; });
-  store.capacityRows.forEach((row) => {
-    if (!hcTable[row.deptKey]) hcTable[row.deptKey] = {};
-    periods.forEach((p) => {
-      hcTable[row.deptKey][p] = (hcTable[row.deptKey][p] ?? 0) + (row.periods[p] ?? 0);
-    });
-  });
-
-  // Cap hours per dept/period at selected hours rate
-  const wks = store.settings.weeksPerMonth;
-  const capHrs = (hc: number) => hc * tab * wks;
-
-  // Totals per period
-  const periodTotals: Record<string, { hc: number; hrs: number }> = {};
-  periods.forEach((p) => {
-    const totalHc = DEPT_KEYS.reduce((s, k) => s + (hcTable[k][p] ?? 0), 0);
-    periodTotals[p] = { hc: totalHc, hrs: capHrs(totalHc) };
-  });
-
   return (
-    <div className="space-y-6 animate-in">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-ink-900">Capacity</h1>
-          <p className="text-sm text-ink-500 mt-1">Headcount roster and calculated capacity hours per department</p>
-        </div>
-        <div className="flex gap-2">
-          {/* Hours tab */}
-          <div className="flex items-center gap-1 bg-white border border-ink-200 rounded-lg p-1">
-            {([40, 50, 60] as const).map((h) => (
-              <button
-                key={h}
-                onClick={() => setTab(h)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${tab === h ? 'bg-brand-600 text-white' : 'text-ink-600 hover:bg-ink-100'}`}
-              >
-                {h} hrs
-              </button>
-            ))}
-          </div>
-          <button onClick={() => setShowModal(true)} className="btn-secondary text-sm">
-            <Plus size={14} /> Add
-          </button>
-          <button onClick={() => { exportToExcel(datasets); toast.success('Exported'); }} className="btn-secondary text-sm">
-            <Download size={14} /> Export
-          </button>
-        </div>
+    <div className="p-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Capacity Analysis</h1>
+        <p className="text-slate-500 text-sm mt-1">Average capacity and utilization by department</p>
       </div>
 
-      {/* Capacity table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs tabular">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="bg-ink-800 text-white">
-                <th className="sticky left-0 bg-ink-800 px-4 py-3 text-left font-bold uppercase tracking-wide whitespace-nowrap">
-                  Department / Role
-                </th>
-                {periods.map((p) => (
-                  <th key={p} className="px-3 py-3 text-center font-semibold whitespace-nowrap">{p}</th>
-                ))}
-                <th className="px-3 py-3 text-center font-semibold bg-ink-900">Total</th>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">Department</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Weeks</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Avg Headcount</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Avg Workload</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Cap @ 40</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Cap @ 50</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Cap @ 60</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-600">Utilization</th>
               </tr>
             </thead>
             <tbody>
-              {DEPT_KEYS.map((key, ri) => {
-                const hcRow = hcTable[key] ?? {};
-                const totalHc = periods.reduce((s, p) => s + (hcRow[p] ?? 0), 0);
-                if (totalHc === 0) return null;
-                return (
-                  <tr key={key} className={ri % 2 === 0 ? 'bg-white hover:bg-ink-50' : 'bg-ink-50/50 hover:bg-ink-100'}>
-                    <td className={`sticky left-0 px-4 py-2.5 font-semibold whitespace-nowrap ${ri % 2 === 0 ? 'bg-white' : 'bg-ink-50'}`}>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: DEPT_COLOR[key] }} />
-                        <span className="text-ink-700">{DEPT_LABELS[key]}</span>
-                      </div>
-                    </td>
-                    {periods.map((p) => {
-                      const hc = hcRow[p] ?? 0;
-                      return (
-                        <td key={p} className="px-3 py-2.5 text-center">
-                          <div className="font-semibold text-ink-700">{hc || '·'}</div>
-                          {hc > 0 && (
-                            <div className="text-[9px] text-ink-400 mt-0.5">{fmtNum(capHrs(hc))}</div>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="px-3 py-2.5 text-center bg-ink-50 font-bold text-ink-800">
-                      {fmtNum(periods.reduce((s, p) => s + (hcRow[p] ?? 0), 0))}
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {/* Totals row */}
-              <tr className="bg-ink-700 text-white font-bold text-xs">
-                <td className="sticky left-0 bg-ink-700 px-4 py-3 uppercase tracking-wide">TOTAL</td>
-                {periods.map((p) => (
-                  <td key={p} className="px-3 py-3 text-center">
-                    <div>{periodTotals[p]?.hc ?? 0}</div>
-                    <div className="text-[9px] text-ink-300 mt-0.5">{fmtNum(periodTotals[p]?.hrs ?? 0)}</div>
+              {rows.map(({ dept, weeks, avgHead, avgWorkload, avgCap40, avgCap50, avgCap60, utilization }) => (
+                <tr key={dept} className="border-b border-slate-50 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-800">{dept}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{weeks}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">
+                    {weeks > 0 ? avgHead.toFixed(1) : '—'}
                   </td>
-                ))}
-                <td className="px-3 py-3 text-center bg-ink-900">
-                  {fmtNum(periods.reduce((s, p) => s + (periodTotals[p]?.hc ?? 0), 0))}
-                </td>
-              </tr>
+                  <td className="px-4 py-3 text-right text-red-600 font-medium">
+                    {weeks > 0 ? `${avgWorkload.toFixed(1)} hrs` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right text-blue-700">
+                    {weeks > 0 ? `${avgCap40.toFixed(1)} hrs` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right text-green-700 font-medium">
+                    {weeks > 0 ? `${avgCap50.toFixed(1)} hrs` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right text-purple-700">
+                    {weeks > 0 ? `${avgCap60.toFixed(1)} hrs` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {weeks > 0 ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${utilization > 100 ? 'bg-red-500' : utilization > 80 ? 'bg-orange-400' : 'bg-green-500'}`}
+                            style={{ width: `${Math.min(utilization, 100)}%` }}
+                          />
+                        </div>
+                        <span className={`font-semibold text-xs min-w-[3rem] text-right ${utilization > 100 ? 'text-red-600' : utilization > 80 ? 'text-orange-600' : 'text-green-700'}`}>
+                          {utilization.toFixed(1)}%
+                        </span>
+                      </div>
+                    ) : '—'}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Per-dept summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {datasets
-          .filter((d) => d.key !== 'TOTAL' && d.points.some((p) => p.headcount > 0))
-          .map((d) => {
-            const latest = d.points[d.points.length - 1];
-            const cap = tab === 40 ? latest?.capacity40 : tab === 50 ? latest?.capacity50 : latest?.capacity60;
-            return (
-              <div key={d.key} className="card p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
-                  <span className="text-xs font-semibold text-ink-600 truncate">{d.label}</span>
-                </div>
-                <div className="text-xl font-bold text-ink-900 tabular">{fmtNum(latest?.headcount ?? 0)}</div>
-                <div className="text-xs text-ink-400 mt-0.5">people · {fmtNum(cap ?? 0)} hrs cap</div>
-              </div>
-            );
-          })}
-      </div>
-
-      {showModal && <ManualEntryModal onClose={() => setShowModal(false)} />}
     </div>
   );
 }
