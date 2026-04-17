@@ -1,16 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import path from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+  define: {
+    // Fix CJS modules (xlsx, etc.) that check for Node globals
+    global: 'globalThis',
   },
   server: {
     port: 5173,
-    open: true,
+    open: false,
+  },
+  optimizeDeps: {
+    include: ['xlsx', 'papaparse'],
   },
 });
